@@ -20,11 +20,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
+        // Générer la liste des participants
+          let participantsHTML = "";
+          if (details.participants && details.participants.length > 0) {
+            participantsHTML = `
+              <div class="participants-section">
+                <strong>Participants inscrits :</strong>
+                <ul class="participants-list">
+                  ${details.participants.map(p => `
+                    <li class="participant-item">${p}
+                      <span class="delete-participant" title="Désinscrire" data-activity="${name}" data-email="${p}">✖</span>
+                    </li>
+                  `).join("")}
+                </ul>
+              </div>
+            `;
+          } else {
+            participantsHTML = `
+              <div class="participants-section empty">
+                <em>Aucun participant inscrit pour le moment.</em>
+              </div>
+            `;
+          }
+
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          ${participantsHTML}
         `;
 
         activitiesList.appendChild(activityCard);
@@ -39,6 +63,30 @@ document.addEventListener("DOMContentLoaded", () => {
       activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
       console.error("Error fetching activities:", error);
     }
+  
+       // Ajout des gestionnaires de suppression après insertion dans le DOM
+       setTimeout(() => {
+         const deleteIcons = activityCard.querySelectorAll('.delete-participant');
+         deleteIcons.forEach(icon => {
+           icon.addEventListener('click', async (e) => {
+             const activityName = icon.getAttribute('data-activity');
+             const email = icon.getAttribute('data-email');
+             try {
+               const response = await fetch(`/activities/${encodeURIComponent(activityName)}/signup?email=${encodeURIComponent(email)}`, {
+                 method: 'DELETE',
+               });
+               if (response.ok) {
+                 fetchActivities(); // Refresh list
+               } else {
+                 const result = await response.json();
+                 alert(result.detail || 'Erreur lors de la désinscription.');
+               }
+             } catch (error) {
+               alert('Erreur réseau lors de la désinscription.');
+             }
+           });
+         });
+       }, 0);
   }
 
   // Handle form submission
@@ -62,6 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities(); // Rafraîchir la liste après inscription
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
